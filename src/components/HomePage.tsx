@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import type { Service } from '../lib/database.types';
 import { CategoryFilter } from './CategoryFilter';
 import { ServiceCard } from './ServiceCard';
@@ -23,13 +24,18 @@ export function HomePage({ onServiceClick }: HomePageProps) {
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .order('service_name', { ascending: true });
-
-      if (error) throw error;
-      setServices(data || []);
+      const servicesRef = collection(db, 'services');
+      const q = query(servicesRef, orderBy('service_name', 'asc'));
+      const querySnapshot = await getDocs(q);
+      
+      const servicesData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        created_at: doc.data().created_at?.toDate() || new Date(),
+        updated_at: doc.data().updated_at?.toDate() || new Date(),
+      })) as Service[];
+      
+      setServices(servicesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch services');
     } finally {

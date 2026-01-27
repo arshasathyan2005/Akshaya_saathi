@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Loader2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import type { Service } from '../lib/database.types';
+import { db } from '../lib/firebase';
+import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import type { Service, ServiceInput } from '../lib/database.types';
 import { CATEGORIES } from './CategoryFilter';
 
 interface ServiceFormProps {
@@ -50,26 +51,26 @@ export function ServiceForm({ service, onClose, onSuccess }: ServiceFormProps) {
       const filteredDocuments = documents.filter(doc => doc.trim() !== '');
       const filteredSteps = steps.filter(step => step.trim() !== '');
 
-      const serviceData = {
+      const serviceData: ServiceInput = {
         ...formData,
         documents_required: filteredDocuments,
         procedure_steps: filteredSteps,
-        updated_at: new Date().toISOString(),
       };
 
       if (service) {
-        const { error } = await supabase
-          .from('services')
-          .update(serviceData)
-          .eq('id', service.id);
-
-        if (error) throw error;
+        // Update existing service
+        const serviceRef = doc(db, 'services', service.id);
+        await updateDoc(serviceRef, {
+          ...serviceData,
+          updated_at: Timestamp.now(),
+        });
       } else {
-        const { error } = await supabase
-          .from('services')
-          .insert([serviceData]);
-
-        if (error) throw error;
+        // Add new service
+        await addDoc(collection(db, 'services'), {
+          ...serviceData,
+          created_at: Timestamp.now(),
+          updated_at: Timestamp.now(),
+        });
       }
 
       onSuccess();

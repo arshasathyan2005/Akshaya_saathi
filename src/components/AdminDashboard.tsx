@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { LogOut, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { collection, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import type { Service } from '../lib/database.types';
 import { ServiceForm } from './ServiceForm';
 
@@ -21,13 +22,18 @@ export function AdminDashboard() {
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .order('service_name', { ascending: true });
-
-      if (error) throw error;
-      setServices(data || []);
+      const servicesRef = collection(db, 'services');
+      const q = query(servicesRef, orderBy('service_name', 'asc'));
+      const querySnapshot = await getDocs(q);
+      
+      const servicesData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        created_at: doc.data().created_at?.toDate() || new Date(),
+        updated_at: doc.data().updated_at?.toDate() || new Date(),
+      })) as Service[];
+      
+      setServices(servicesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch services');
     } finally {
@@ -40,12 +46,7 @@ export function AdminDashboard() {
 
     try {
       setDeletingId(id);
-      const { error } = await supabase
-        .from('services')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await deleteDoc(doc(db, 'services', id));
       await fetchServices();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete service');

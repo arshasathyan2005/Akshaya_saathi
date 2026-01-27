@@ -37,8 +37,8 @@ A comprehensive web application that helps users understand the procedures and r
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
+- **Database**: Firebase Firestore
+- **Authentication**: Firebase Auth
 
 ## Getting Started
 
@@ -46,6 +46,7 @@ A comprehensive web application that helps users understand the procedures and r
 
 - Node.js 18+ installed
 - npm or yarn package manager
+- Firebase account and project
 
 ### Installation
 
@@ -54,9 +55,28 @@ A comprehensive web application that helps users understand the procedures and r
 npm install
 ```
 
-2. Environment variables are already configured in `.env` file
+2. Set up Firebase:
+   - Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+   - Enable Firestore Database
+   - Enable Authentication (Email/Password)
+   - Copy your Firebase config from Project Settings
 
-3. Start the development server:
+3. Create a `.env` file in the root directory:
+```bash
+cp .env.example .env
+```
+
+4. Add your Firebase credentials to `.env`:
+```
+VITE_FIREBASE_API_KEY=your_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
+
+5. Start the development server:
 ```bash
 npm run dev
 ```
@@ -65,21 +85,21 @@ The application will open at `http://localhost:5173`
 
 ## Database Structure
 
-The application uses a single `services` table in Supabase:
+The application uses Firestore with a `services` collection:
 
-```sql
+```typescript
 services {
-  id: uuid (primary key)
-  service_name: text
-  category: text
-  description: text
-  documents_required: text[]
-  procedure_steps: text[]
-  fees: text
-  processing_time: text
-  notes: text
-  created_at: timestamptz
-  updated_at: timestamptz
+  id: string (auto-generated)
+  service_name: string
+  category: string
+  description: string
+  documents_required: string[]
+  procedure_steps: string[]
+  fees: string
+  processing_time: string
+  notes: string
+  created_at: Timestamp
+  updated_at: Timestamp
 }
 ```
 
@@ -92,20 +112,12 @@ To access the admin dashboard:
 
 ### Creating an Admin User
 
-Since this uses Supabase, you need to create an admin user:
-
-**Option 1: Using Supabase Dashboard**
-1. Go to your Supabase project dashboard
+**Using Firebase Console:**
+1. Go to your Firebase project dashboard
 2. Navigate to Authentication > Users
 3. Click "Add User"
 4. Enter email and password
-5. Confirm the user
-
-**Option 2: Using Supabase SQL Editor**
-```sql
--- This creates a user via SQL
--- Note: You should use the Supabase Dashboard for proper user creation
-```
+5. The user will be created and can immediately log in
 
 Once created, use those credentials to log in to the admin panel.
 
@@ -153,10 +165,29 @@ src/
 
 ## Security Features
 
-- Row Level Security (RLS) enabled on all tables
-- Public users can only read services
-- Only authenticated admin users can create, update, or delete services
-- Secure authentication using Supabase Auth
+- Firestore Security Rules control data access
+- Public users can read services (configure in Firebase Console)
+- Only authenticated users can create, update, or delete services
+- Secure authentication using Firebase Auth
+
+### Firestore Security Rules
+
+Add these rules in Firebase Console > Firestore Database > Rules:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /services/{serviceId} {
+      // Anyone can read services
+      allow read: if true;
+      
+      // Only authenticated users can write
+      allow create, update, delete: if request.auth != null;
+    }
+  }
+}
+```
 
 ## Deployment
 
