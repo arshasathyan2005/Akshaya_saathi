@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Loader2 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, Timestamp, arrayUnion } from 'firebase/firestore';
 import type { Service, ServiceInput } from '../lib/database.types';
 import { CATEGORIES } from './CategoryFilter';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ServiceFormProps {
   service?: Service | null;
@@ -12,6 +13,7 @@ interface ServiceFormProps {
 }
 
 export function ServiceForm({ service, onClose, onSuccess }: ServiceFormProps) {
+  const { adminUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,10 +68,19 @@ export function ServiceForm({ service, onClose, onSuccess }: ServiceFormProps) {
         });
       } else {
         // Add new service
-        await addDoc(collection(db, 'services'), {
+        if (!adminUser) {
+          throw new Error('Admin user not found');
+        }
+
+        const docRef = await addDoc(collection(db, 'services'), {
           ...serviceData,
           created_at: Timestamp.now(),
           updated_at: Timestamp.now(),
+        });
+
+        // Add service ID to center's services array
+        await updateDoc(doc(db, 'centers', adminUser.centerId), {
+          services: arrayUnion(docRef.id)
         });
       }
 

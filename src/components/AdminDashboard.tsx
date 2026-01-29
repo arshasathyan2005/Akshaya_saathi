@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
+import { LogOut, Plus, Edit, Trash2, Loader2, MapPin, Phone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
-import { collection, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
-import type { Service } from '../lib/database.types';
+import { collection, getDocs, query, where, documentId, deleteDoc, doc, getDoc, updateDoc, arrayRemove } from 'firebase/firestore';
+import type { Service, Center } from '../lib/database.types';
 import { ServiceForm } from './ServiceForm';
 
 export function AdminDashboard() {
-  const { signOut } = useAuth();
+  const { signOut, adminUser } = useAuth();
+  const [center, setCenter] = useState<Center | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,26 +17,67 @@ export function AdminDashboard() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchServices();
-  }, []);
+    if (adminUser) {
+      fetchCenterAndServices();
+    }
+  }, [adminUser]);
 
-  const fetchServices = async () => {
+  const fetchCenterAndServices = async () => {
+    if (!adminUser) return;
+
     try {
       setLoading(true);
+      
+      // Fetch center data
+      const centerDoc = await getDoc(doc(db, 'centers', adminUser.centerId));
+      if (!centerDoc.exists()) {
+        setError('Center not found');
+        setLoading(false);
+        return;
+      }
+      
+      const centerData = {
+        id: centerDoc.id,
+        ...centerDoc.data(),
+      } as Center;
+      setCenter(centerData);
+
+      // Fetch services for this center
+      if (centerData.services.length === 0) {
+        setServices([]);
+        setLoading(false);
+        return;
+      }
+
       const servicesRef = collection(db, 'services');
-      const q = query(servicesRef, orderBy('service_name', 'asc'));
-      const querySnapshot = await getDocs(q);
+      const serviceIds = centerData.services;
+      const batchSize = 10;
+      const batches = [];
       
-      const servicesData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        created_at: doc.data().created_at?.toDate() || new Date(),
-        updated_at: doc.data().updated_at?.toDate() || new Date(),
-      })) as Service[];
+      for (let i = 0; i < serviceIds.length; i += batchSize) {
+        const batch = serviceIds.slice(i, i + batchSize);
+        const q = query(servicesRef, where(documentId(), 'in', batch));
+        batches.push(getDocs(q));
+      }
       
+      const results = await Promise.all(batches);
+      const servicesData: Service[] = [];
+      
+      results.forEach((querySnapshot) => {
+        querySnapshot.docs.forEach((doc) => {
+          servicesData.push({
+            id: doc.id,
+            ...doc.data(),
+            created_at: doc.data().created_at?.toDate() || new Date(),
+            updated_at: doc.data().updated_at?.toDate() || new Date(),
+          } as Service);
+        });
+      });
+      
+      servicesData.sort((a, b) => a.service_name.localeCompare(b.service_name));
       setServices(servicesData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch services');
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
@@ -43,11 +85,20 @@ export function AdminDashboard() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this service?')) return;
+    if (!adminUser) return;
 
     try {
       setDeletingId(id);
+      
+      // Delete the service document
       await deleteDoc(doc(db, 'services', id));
-      await fetchServices();
+      
+      // Remove service ID from center's services array
+      await updateDoc(doc(db, 'centers', adminUser.centerId), {
+        services: arrayRemove(id)
+      });
+      
+      await fetchCenterAndServices();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete service');
     } finally {
@@ -66,7 +117,7 @@ export function AdminDashboard() {
   };
 
   const handleFormSuccess = () => {
-    fetchServices();
+    fetchCenterAndServices();
   };
 
   return (
@@ -76,7 +127,18 @@ export function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-gray-600 text-sm mt-1">Manage Akshaya Center Services</p>
+              {center && (
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm capitalize font-medium">{center.place}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4" />
+                    <span className="text-sm">{center.phone_number}</span>
+                  </div>
+                </div>
+              )}
             </div>
             <button
               onClick={() => signOut()}

@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { LogIn, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-export function AdminLogin() {
+interface AdminLoginProps {
+  onRegisterClick?: () => void;
+}
+
+export function AdminLogin({ onRegisterClick }: AdminLoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -89,6 +93,20 @@ export function AdminLogin() {
             )}
           </button>
         </form>
+
+        {onRegisterClick && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              New Akshaya center?{' '}
+              <button
+                onClick={onRegisterClick}
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Register here
+              </button>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

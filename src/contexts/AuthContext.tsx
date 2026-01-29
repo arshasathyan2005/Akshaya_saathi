@@ -1,14 +1,17 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { 
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
   User 
 } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import type { AdminUser } from '../lib/database.types';
 
 interface AuthContextType {
   user: User | null;
+  adminUser: AdminUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -18,11 +21,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      
+      if (user) {
+        // Fetch admin user data from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setAdminUser(userDoc.data() as AdminUser);
+          } else {
+            setAdminUser(null);
+          }
+        } catch (error) {
+          console.error('Failed to fetch admin user data:', error);
+          setAdminUser(null);
+        }
+      } else {
+        setAdminUser(null);
+      }
+      
       setLoading(false);
     });
 
@@ -35,10 +57,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await firebaseSignOut(auth);
+    setAdminUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, adminUser, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
