@@ -9,12 +9,13 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { CenterSelection } from './components/CenterSelection';
 import { CenterSwitcher } from './components/CenterSwitcher';
 import { CenterRegistration } from './components/CenterRegistration';
+import { CompleteProfile } from './components/CompleteProfile';
 import type { Service } from './lib/database.types';
 
 type View = 'home' | 'service-detail' | 'admin' | 'register';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, adminUser, loading } = useAuth();
   const { selectedCenter } = useCenter();
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -41,9 +42,14 @@ function AppContent() {
   }
 
   if (currentView === 'admin') {
-    if (user) {
+    if (user && adminUser) {
+      // User is logged in AND has a Firestore profile — show dashboard
       return <AdminDashboard />;
+    } else if (user && !adminUser) {
+      // User is logged in but has NO Firestore profile — show profile completion
+      return <CompleteProfile onSuccess={() => {}} />;
     } else {
+      // Not logged in — show login form
       return <AdminLogin onRegisterClick={() => setCurrentView('register')} />;
     }
   }

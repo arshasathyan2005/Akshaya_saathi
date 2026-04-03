@@ -45,25 +45,34 @@ export function CenterRegistration({ onBack, onSuccess }: CenterRegistrationProp
         formData.password
       );
 
-      // Create center document
-      const centerRef = await addDoc(collection(db, 'centers'), {
-        place: formData.centerPlace.toLowerCase(),
-        phone_number: formData.phoneNumber,
-        services: [], // Empty services array initially
-      });
+      try {
+        // Create center document
+        const centerRef = await addDoc(collection(db, 'centers'), {
+          place: formData.centerPlace.toLowerCase(),
+          phone_number: formData.phoneNumber,
+          services: [], // Empty services array initially
+        });
 
-      // Create user document linking admin to center
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        id: userCredential.user.uid,
-        email: formData.email,
-        centerId: centerRef.id,
-        role: 'admin',
-      });
+        // Create user document linking admin to center
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          id: userCredential.user.uid,
+          email: formData.email,
+          centerId: centerRef.id,
+          role: 'admin',
+        });
+      } catch (dbError: any) {
+        // Clean up Auth state if DB creation fails
+        await auth.signOut();
+        throw new Error(
+          'Account created but failed to save profile to database. Please check Firestore Security Rules. Error: ' + 
+          dbError.message
+        );
+      }
 
       onSuccess();
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered');
+        setError('This email is already registered. If registration failed previously, please contact support or use a different email.');
       } else if (err.code === 'auth/invalid-email') {
         setError('Invalid email address');
       } else if (err.code === 'auth/weak-password') {

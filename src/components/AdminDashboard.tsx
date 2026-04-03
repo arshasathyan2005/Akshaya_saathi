@@ -8,6 +8,7 @@ import { ServiceForm } from './ServiceForm';
 
 export function AdminDashboard() {
   const { signOut, adminUser } = useAuth();
+  console.log('[AdminDashboard] adminUser:', adminUser);
   const [center, setCenter] = useState<Center | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +41,7 @@ export function AdminDashboard() {
         id: centerDoc.id,
         ...centerDoc.data(),
       } as Center;
+      console.log('[AdminDashboard] Center data:', centerData);
       setCenter(centerData);
 
       // Fetch services for this center
@@ -75,6 +77,7 @@ export function AdminDashboard() {
       });
       
       servicesData.sort((a, b) => a.service_name.localeCompare(b.service_name));
+      console.log('[AdminDashboard] Services fetched:', servicesData);
       setServices(servicesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');

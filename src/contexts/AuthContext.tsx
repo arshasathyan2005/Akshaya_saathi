@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
   User 
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import type { AdminUser } from '../lib/database.types';
 
 interface AuthContextType {
@@ -25,20 +25,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeUser: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setUser(user);
       
+      if (unsubscribeUser) {
+        unsubscribeUser();
+        unsubscribeUser = undefined;
+      }
+
       if (user) {
-        // Fetch admin user data from Firestore
+        // Listen to admin user data from Firestore
         try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            setAdminUser(userDoc.data() as AdminUser);
-          } else {
-            setAdminUser(null);
-          }
+          unsubscribeUser = onSnapshot(
+            doc(db, 'users', user.uid),
+            (userDoc) => {
+              if (userDoc.exists()) {
+                setAdminUser(userDoc.data() as AdminUser);
+              } else {
+                setAdminUser(null);
+              }
+            },
+            (error) => {
+              console.error('Failed to listen to admin user data:', error);
+              setAdminUser(null);
+            }
+          );
         } catch (error) {
-          console.error('Failed to fetch admin user data:', error);
+          console.error('Failed to setup admin user listener:', error);
           setAdminUser(null);
         }
       } else {
@@ -48,7 +63,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUser) {
+        unsubscribeUser();
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
