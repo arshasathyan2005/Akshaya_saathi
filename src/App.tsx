@@ -50,7 +50,13 @@ function AppContent() {
       return <CompleteProfile onSuccess={() => {}} />;
     } else {
       // Not logged in — show login form
-      return <AdminLogin onRegisterClick={() => setCurrentView('register')} />;
+      return (
+        <AdminLogin
+          onRegisterClick={() => setCurrentView('register')}
+          onBack={() => setCurrentView('home')}
+        />
+      );
+
     }
   }
 

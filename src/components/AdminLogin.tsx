@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { LogIn, Loader2 } from 'lucide-react';
+import { LogIn, Loader2, ChevronLeft, MapPin } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AdminLoginProps {
   onRegisterClick?: () => void;
+  onBack?: () => void;
 }
 
-export function AdminLogin({ onRegisterClick }: AdminLoginProps) {
+export function AdminLogin({ onRegisterClick, onBack }: AdminLoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,8 +30,20 @@ export function AdminLogin({ onRegisterClick }: AdminLoginProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-        <div className="text-center mb-8">
+      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="absolute top-6 left-6 flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors group"
+            title="Back to services guide"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <MapPin className="w-4 h-4" />
+            <span className="text-sm font-medium">Home</span>
+          </button>
+        )}
+
+        <div className="text-center mb-8 pt-4">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
             <LogIn className="w-8 h-8 text-blue-600" />
           </div>
@@ -111,3 +124,4 @@ export function AdminLogin({ onRegisterClick }: AdminLoginProps) {
     </div>
   );
 }
+
